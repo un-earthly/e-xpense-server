@@ -1,39 +1,59 @@
-version: '3'
+# docker-compose.yml
+version: '3.8'
+
 services:
-  nestjs:
-    build: .
-    container_name: nestjs-app
+  mongodb:
+    image: mongo:latest
+    container_name: xpense-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=xpense-db
+    networks:
+      - xpense-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: xpense-rabbitmq
+    ports:
+      - "5672:5672"  # RabbitMQ default port
+      - "15672:15672"  # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - xpense-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xpense-api
     ports:
       - "3000:3000"
     depends_on:
-      - redis
+      - mongodb
       - rabbitmq
-      - mongo
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/xpense-db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=your_secret_key_here
+    volumes:
+      - .:/app
+      - /app/node_modules
     networks:
-      - app-network
-  redis:
-    image: redis:alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    networks:
-      - app-network
-  rabbitmq:
-    image: "rabbitmq:management"
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    networks:
-      - app-network
-  mongo:
-    image: mongo:latest
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    networks:
-      - app-network
+      - xpense-network
+    command: npm run start:dev
 
 networks:
-  app-network:
+  xpense-network:
     driver: bridge
+
+volumes:
+  mongodb_data:
+  rabbitmq_data:

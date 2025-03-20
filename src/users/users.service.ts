@@ -1,24 +1,59 @@
-
 import { Injectable } from '@nestjs/common';
-
-export type User = any;
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
 export class UsersService {
-    private readonly users = [
-        {
-            userId: 1,
-            username: 'john',
-            password: 'changeme',
-        },
-        {
-            userId: 2,
-            username: 'maria',
-            password: 'guess',
-        },
-    ];
+    constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
 
-    async findOne(username: string): Promise<User | undefined> {
-        return this.users.find(user => user.username === username);
+    async findOne(email: string): Promise<User | undefined> {
+        const user = await this.userModel.findOne({ email }).exec();
+        return user || undefined;
+    }
+
+
+    async findById(id: string): Promise<User | undefined> {
+        const user = await this.userModel.findById(id).exec();
+        return user || undefined;
+    }
+
+
+    async create(email: string, hashedPassword: string): Promise<User> {
+        const newUser = new this.userModel({
+            email,
+            password: hashedPassword,
+        });
+        return newUser.save();
+    }
+
+    async updateResetPasswordToken(
+        email: string,
+        token: string,
+        tokenExpires: Date,
+    ): Promise<User | null> {
+        return this.userModel.findOneAndUpdate(
+            { email },
+            {
+                resetPasswordToken: token,
+                resetPasswordTokenExpires: tokenExpires,
+            },
+            { new: true },
+        );
+    }
+
+    async resetPassword(token: string, newPassword: string): Promise<User | null> {
+        return this.userModel.findOneAndUpdate(
+            {
+                resetPasswordToken: token,
+                resetPasswordTokenExpires: { $gt: new Date() },
+            },
+            {
+                password: newPassword,
+                resetPasswordToken: null,
+                resetPasswordTokenExpires: null,
+            },
+            { new: true },
+        );
     }
 }

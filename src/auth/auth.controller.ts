@@ -1,16 +1,14 @@
-
 import {
     Body,
     Controller,
-    Get,
     HttpCode,
     HttpStatus,
     Post,
-    Request,
-    UseGuards
+    UsePipes,
+    ValidationPipe,
 } from '@nestjs/common';
-import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -18,16 +16,26 @@ export class AuthController {
 
     @HttpCode(HttpStatus.OK)
     @Post('login')
-    signIn(@Body() signInDto: Record<string, any>) {
-        return this.authService.login(signInDto.username, signInDto.password);
+    @UsePipes(new ValidationPipe({ whitelist: true }))
+    signIn(@Body() signInDto: LoginDto) {
+        return this.authService.login(signInDto.email, signInDto.password);
     }
+
     @Post('register')
-    register(@Body() signInDto: Record<string, any>) {
-        return this.authService.register(signInDto.username, signInDto.password);
+    @UsePipes(new ValidationPipe({ whitelist: true }))
+    register(@Body() registerDto: RegisterDto) {
+        return this.authService.register(registerDto.email, registerDto.password);
     }
-    @UseGuards(AuthGuard)
-    @Get('profile')
-    getProfile(@Request() req) {
-        return req.user;
+
+    @Post('forgot-password')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
+    async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+        return this.authService.forgotPassword(forgotPasswordDto.email);
+    }
+
+    @Post('reset-password')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
+    async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+        return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
     }
 }
