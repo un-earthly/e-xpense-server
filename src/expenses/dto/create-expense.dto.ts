@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsDate, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, IsDate, IsOptional, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RecurrenceInterval } from '../schemas/expense.schema';
 

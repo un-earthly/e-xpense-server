@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
 import { Category } from './category.schema';
 
@@ -8,6 +8,7 @@ export enum RecurrenceInterval {
     DAILY = 'daily',
     WEEKLY = 'weekly',
     MONTHLY = 'monthly',
+    YEARLY = 'yearly',
 }
 
 @Schema({ timestamps: true })
@@ -18,7 +19,7 @@ export class Expense {
     @Prop({ required: true })
     description: string;
 
-    @Prop({ type: Date, required: true })
+    @Prop({ required: true, default: Date.now })
     date: Date;
 
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Category' })
@@ -27,11 +28,15 @@ export class Expense {
     @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
     user: User;
 
-    @Prop({ type: String, enum: RecurrenceInterval, default: RecurrenceInterval.NONE })
+    @Prop({
+        type: String,
+        enum: RecurrenceInterval,
+        default: RecurrenceInterval.NONE
+    })
     recurrenceInterval: RecurrenceInterval;
 
-    @Prop({ type: Date })
-    nextRecurrenceDate: Date;
+    @Prop({ type: Date, default: null })
+    nextRecurrenceDate: Date | null;
 }
 
 export type ExpenseDocument = Expense & Document;

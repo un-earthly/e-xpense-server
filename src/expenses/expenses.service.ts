@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Expense, ExpenseDocument, RecurrenceInterval } from './schemas/expense.schema';
 import { Category, CategoryDocument } from './schemas/category.schema';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -9,7 +9,14 @@ import { QueryExpenseDto } from './dto/query-expense.dto';
 import { Cron } from '@nestjs/schedule';
 import { ClientProxy } from '@nestjs/microservices';
 import { CreateCategoryDto } from './dto/create-category.dto';
-import { ExpenseQuery } from './interfaces/expense.interface';
+import {
+    ExpenseQuery,
+    ExpensePaginationResult,
+    DailySummary,
+    MonthlyReportData,
+    ReportQueuePayload
+} from './interfaces/expense.interface';
+import { User } from 'src/users/interfaces/user.interface';
 
 @Injectable()
 export class ExpensesService {
@@ -19,29 +26,29 @@ export class ExpensesService {
         @Inject('REPORT_SERVICE') private reportClient: ClientProxy,
     ) { }
 
-    async createExpense(createExpenseDto: CreateExpenseDto, userId: string): Promise<Expense> {
-        let categoryId = createExpenseDto.category;
+    async createExpense(createExpenseDto: CreateExpenseDto, userId: string): Promise<ExpenseDocument> {
+        let categoryId: string | undefined = createExpenseDto.category;
 
-        if (categoryId && !categoryId.match(/^[0-9a-fA-F]{24}$/)) {
+        if (categoryId && !this.isValidObjectId(categoryId)) {
             const existingCategory = await this.categoryModel.findOne({
                 name: categoryId,
                 user: userId,
             });
 
             if (existingCategory) {
-                categoryId = existingCategory._id.toString();
+                categoryId = (existingCategory._id as unknown as Types.ObjectId).toString();
             } else {
                 const newCategory = await this.categoryModel.create({
                     name: categoryId,
                     user: userId,
                 });
-                categoryId = newCategory._id.toString();
+                categoryId = (newCategory._id as unknown as Types.ObjectId).toString();
             }
         }
 
         // Calculate next recurrence date if it's a recurring expense
         let nextRecurrenceDate: Date | null = null;
-        if (createExpenseDto.recurrenceInterval) {
+        if (createExpenseDto.recurrenceInterval && createExpenseDto.recurrenceInterval !== RecurrenceInterval.NONE) {
             nextRecurrenceDate = this.calculateNextRecurrenceDate(
                 createExpenseDto.date,
                 createExpenseDto.recurrenceInterval,
@@ -61,21 +68,23 @@ export class ExpensesService {
     async findAllExpenses(
         queryExpenseDto: QueryExpenseDto,
         userId: string,
-    ): Promise<{ expenses: Expense[]; total: number; page: number; limit: number }> {
+    ): Promise<ExpensePaginationResult> {
         const { category, startDate, endDate, page = 1, limit = 10 } = queryExpenseDto;
         const skip = (page - 1) * limit;
 
         const query: ExpenseQuery = { user: userId };
 
         if (category) {
-            if (category.match(/^[0-9a-fA-F]{24}$/)) {
+            if (this.isValidObjectId(category)) {
                 query.category = category;
             } else {
                 const categoryDoc = await this.categoryModel.findOne({
                     name: category,
                     user: userId,
                 });
-                query.category = categoryDoc && categoryDoc._id ? categoryDoc._id.toString() : undefined;
+                if (categoryDoc) {
+                    query.category = (categoryDoc._id as unknown as Types.ObjectId).toString();
+                }
             }
         }
 
@@ -87,7 +96,7 @@ export class ExpensesService {
             query.date = { ...query.date, $lte: new Date(endDate) };
         }
 
-        const [expenses, total] = await Promise.all([
+        const [expensesResult, total] = await Promise.all([
             this.expenseModel
                 .find(query)
                 .sort({ date: -1 })
@@ -96,16 +105,15 @@ export class ExpensesService {
                 .populate('category', 'name'),
             this.expenseModel.countDocuments(query),
         ]);
-
         return {
-            expenses,
+            expenses: expensesResult as any[],
             total,
             page,
             limit,
-        };
+        } as ExpensePaginationResult;
     }
 
-    async findOneExpense(id: string, userId: string): Promise<Expense> {
+    async findOneExpense(id: string, userId: string): Promise<ExpenseDocument> {
         const expense = await this.expenseModel
             .findOne({ _id: id, user: userId })
             .populate('category', 'name');
@@ -121,7 +129,7 @@ export class ExpensesService {
         id: string,
         updateExpenseDto: UpdateExpenseDto,
         userId: string,
-    ): Promise<Expense> {
+    ): Promise<ExpenseDocument> {
         const expense = await this.expenseModel.findOne({ _id: id, user: userId });
 
         if (!expense) {
@@ -130,21 +138,21 @@ export class ExpensesService {
 
         // Handle category updates
         if (updateExpenseDto.category) {
-            if (!updateExpenseDto.category.match(/^[0-9a-fA-F]{24}$/)) {
+            if (!this.isValidObjectId(updateExpenseDto.category)) {
                 const existingCategory = await this.categoryModel.findOne({
                     name: updateExpenseDto.category,
                     user: userId,
                 });
 
                 if (existingCategory) {
-                    updateExpenseDto.category = existingCategory._id.toString();
+                    updateExpenseDto.category = (existingCategory._id as unknown as Types.ObjectId).toString();
                 } else {
                     // Create new category
                     const newCategory = await this.categoryModel.create({
                         name: updateExpenseDto.category,
                         user: userId,
                     });
-                    updateExpenseDto.category = newCategory._id.toString();
+                    updateExpenseDto.category = (newCategory._id as unknown as Types.ObjectId).toString();
                 }
             }
         }
@@ -163,6 +171,10 @@ export class ExpensesService {
             .findByIdAndUpdate(id, updateExpenseDto, { new: true })
             .populate('category', 'name');
 
+        if (!updatedExpense) {
+            throw new NotFoundException(`Failed to update expense with ID ${id}`);
+        }
+
         return updatedExpense;
     }
 
@@ -174,7 +186,7 @@ export class ExpensesService {
     async createCategory(
         createCategoryDto: CreateCategoryDto,
         userId: string,
-    ): Promise<Category> {
+    ): Promise<CategoryDocument> {
         const existingCategory = await this.categoryModel.findOne({
             name: createCategoryDto.name,
             user: userId,
@@ -192,7 +204,7 @@ export class ExpensesService {
         return category.save();
     }
 
-    async findAllCategories(userId: string): Promise<Category[]> {
+    async findAllCategories(userId: string): Promise<CategoryDocument[]> {
         return this.categoryModel.find({ user: userId }).sort({ name: 1 });
     }
 
@@ -201,11 +213,11 @@ export class ExpensesService {
         return { deleted: result.deletedCount > 0 };
     }
 
-    async getDailySummary(userId: string): Promise<any[]> {
+    async getDailySummary(userId: string): Promise<DailySummary[]> {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const dailyExpenses = await this.expenseModel.aggregate([
+        const dailyExpenses = await this.expenseModel.aggregate<DailySummary>([
             {
                 $match: {
                     user: userId,
@@ -236,7 +248,7 @@ export class ExpensesService {
     }
 
     @Cron('0 0 * * *') // Run at midnight every day
-    async handleRecurringExpenses() {
+    async handleRecurringExpenses(): Promise<void> {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -263,25 +275,26 @@ export class ExpensesService {
             await newExpense.save();
 
             // Update the next recurrence date
-            expense.nextRecurrenceDate = this.calculateNextRecurrenceDate(
-                expense.nextRecurrenceDate,
-                expense.recurrenceInterval,
-            );
-            await expense.save();
+            if (expense.nextRecurrenceDate) {
+                expense.nextRecurrenceDate = this.calculateNextRecurrenceDate(
+                    expense.nextRecurrenceDate,
+                    expense.recurrenceInterval,
+                );
+                await expense.save();
+            }
         }
     }
 
-    @Cron('0 0 1 * *')
-    async generateMonthlyReportsForAllUsers() {
-        // In a real application, you would fetch all users and generate reports for each
-        const users = await this.expenseModel.distinct('user');
+    @Cron('0 0 1 * *') // Run at midnight on the first day of each month
+    async generateMonthlyReportsForAllUsers(): Promise<void> {
+        const users: User[] = (await this.expenseModel.distinct('user')) as unknown as User[];
 
         for (const user of users) {
-            this.generateMonthlyReport(user._id);
+            await this.generateMonthlyReport(user._id);
         }
     }
 
-    async generateMonthlyReport(userId: string) {
+    async generateMonthlyReport(userId: string): Promise<{ message: string; period: { startDate: Date; endDate: Date } }> {
         // Get the previous month's date range
         const date = new Date();
         date.setDate(1); // First day of current month
@@ -330,11 +343,11 @@ export class ExpensesService {
             {
                 $project: {
                     _id: 0,
-                    categoryId: '$_id',
+                    categoryId: { $toString: '$_id' },
                     categoryName: { $ifNull: ['$categoryName', 'Uncategorized'] },
                     totalAmount: 1,
                     count: 1,
-                    percentage: { $multiply: [{ $divide: ['$totalAmount', totalAmount] }, 100] },
+                    percentage: { $multiply: [{ $divide: ['$totalAmount', totalAmount || 1] }, 100] },
                 },
             },
             {
@@ -342,7 +355,7 @@ export class ExpensesService {
             },
         ]);
 
-        const report = {
+        const report: MonthlyReportData = {
             userId,
             period: {
                 startDate,
@@ -355,20 +368,22 @@ export class ExpensesService {
             },
             categorySummary,
             expenses: expenses.map(expense => ({
-                id: expense._id,
+                id: (expense._id as unknown as Types.ObjectId).toString(),
                 amount: expense.amount,
                 description: expense.description,
                 date: expense.date,
-                category: expense.category ? (expense.category as any).name : 'Uncategorized',
+                category: this.getCategoryName(expense.category),
             })),
         };
 
         // Send the report to the queue
-        this.reportClient.emit('monthly-report', {
+        const payload: ReportQueuePayload = {
             userId,
             month: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`,
             report,
-        });
+        };
+
+        this.reportClient.emit('monthly-report', payload);
 
         return {
             message: 'Monthly report generation has been queued',
@@ -383,6 +398,10 @@ export class ExpensesService {
         currentDate: Date,
         interval: RecurrenceInterval,
     ): Date | null {
+        if (!currentDate || interval === RecurrenceInterval.NONE) {
+            return null;
+        }
+
         const nextDate = new Date(currentDate);
 
         switch (interval) {
@@ -400,5 +419,25 @@ export class ExpensesService {
         }
 
         return nextDate;
+    }
+
+    private isValidObjectId(id: string): boolean {
+        return /^[0-9a-fA-F]{24}$/.test(id);
+    }
+
+    private getCategoryName(category: any): string {
+        if (!category) {
+            return 'Uncategorized';
+        }
+
+        if (typeof category === 'string') {
+            return 'Uncategorized';
+        }
+
+        if (category.name) {
+            return category.name;
+        }
+
+        return 'Uncategorized';
     }
 }

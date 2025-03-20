@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsDate, IsNumber, Min, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryExpenseDto {
@@ -7,18 +7,25 @@ export class QueryExpenseDto {
     category?: string;
 
     @IsOptional()
-    @IsDateString()
-    startDate?: string;
+    @Type(() => Date)
+    @IsDate()
+    startDate?: Date;
 
     @IsOptional()
-    @IsDateString()
-    endDate?: string;
+    @Type(() => Date)
+    @IsDate()
+    endDate?: Date;
 
     @IsOptional()
     @Type(() => Number)
+    @IsNumber()
+    @IsPositive()
+    @Min(1)
     page?: number = 1;
 
     @IsOptional()
     @Type(() => Number)
+    @IsNumber()
+    @IsPositive()
     limit?: number = 10;
 }
