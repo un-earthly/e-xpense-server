@@ -19,9 +19,12 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     @Post('login')
     signIn(@Body() signInDto: Record<string, any>) {
-        return this.authService.signIn(signInDto.username, signInDto.password);
+        return this.authService.login(signInDto.username, signInDto.password);
     }
-
+    @Post('register')
+    register(@Body() signInDto: Record<string, any>) {
+        return this.authService.register(signInDto.username, signInDto.password);
+    }
     @UseGuards(AuthGuard)
     @Get('profile')
     getProfile(@Request() req) {
