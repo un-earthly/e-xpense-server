@@ -3,9 +3,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import * as dotenv from 'dotenv';
+import 'crypto';
 
 async function bootstrap() {
   dotenv.config();
+  global.crypto = require('crypto');
 
   const app = await NestFactory.create(AppModule);
 

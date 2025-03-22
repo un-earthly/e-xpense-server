@@ -1,30 +1,15 @@
-# docker-compose.yml
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: xpense-mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=xpense-db
-    networks:
-      - xpense-network
-
-  rabbitmq:
+  xpense-rabbitmq:
     image: rabbitmq:3-management
     container_name: xpense-rabbitmq
     ports:
-      - "5672:5672"  # RabbitMQ default port
-      - "15672:15672"  # Management UI
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management UI port
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - xpense-network
 
@@ -37,18 +22,44 @@ services:
       - "3000:3000"
     depends_on:
       - mongodb
-      - rabbitmq
+      - xpense-rabbitmq
+      - redis
     environment:
       - PORT=3000
-      - MONGODB_URI=mongodb://mongodb:27017/xpense-db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - MONGODB_URI=mongodb://root:example@mongodb:27017/xpense-db?authSource=admin
+      - RABBITMQ_URL=amqp://guest:guest@xpense-rabbitmq:5672
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - JWT_SECRET=your_secret_key_here
+      - NODE_ENV=development
     volumes:
       - .:/app
       - /app/node_modules
     networks:
       - xpense-network
     command: npm run start:dev
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    container_name: xpense-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    networks:
+      - xpense-network
+
+  redis:
+    image: redis:latest
+    container_name: xpense-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - xpense-network
 
 networks:
   xpense-network:
