@@ -12,7 +12,7 @@ import { mongooseConfig } from './config/database.config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/xpense-db', mongooseConfig),
+    MongooseModule.forRoot(process.env.MONGODB_URI as string, mongooseConfig),
     AuthModule,
     ExpensesModule,
     UsersModule,
