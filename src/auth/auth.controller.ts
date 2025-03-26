@@ -12,7 +12,7 @@ import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dt
 
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) { }
+    constructor(private readonly authService: AuthService) { }
 
     @HttpCode(HttpStatus.OK)
     @Post('login')
@@ -22,9 +22,8 @@ export class AuthController {
     }
 
     @Post('register')
-    @UsePipes(new ValidationPipe({ whitelist: true }))
-    register(@Body() registerDto: RegisterDto) {
-        return this.authService.register(registerDto.email, registerDto.password);
+    async register(@Body(ValidationPipe) registerDto: RegisterDto) {
+        return this.authService.register(registerDto);
     }
 
     @Post('forgot-password')

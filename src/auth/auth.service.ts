@@ -5,6 +5,9 @@ import { Model } from 'mongoose';
 import { User } from '../users/schemas/user.schema';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { ResponseUtil } from '../common/utils/response.util';
+import { RegisterDto } from './dto/auth.dto';
+
 
 @Injectable()
 export class AuthService {
@@ -27,45 +30,46 @@ export class AuthService {
         }
 
         const payload = { sub: user._id, email: user.email };
+        const access_token = this.jwtService.sign(payload);
 
-        return {
-            access_token: this.jwtService.sign(payload),
+        return ResponseUtil.success('Login successful', {
+            access_token,
             user: {
                 id: user._id,
                 email: user.email,
-            },
-        };
+            }
+        });
     }
 
-    async register(email: string, password: string) {
-        // Check if user already exists
-        const existingUser = await this.userModel.findOne({ email });
+    async register(registerDto: RegisterDto) {
+        const { email, password, firstName, lastName } = registerDto;
 
+        const existingUser = await this.userModel.findOne({ email });
         if (existingUser) {
-            throw new ConflictException('Email already registered');
+            throw new ConflictException('User with this email already exists');
         }
 
-        // Hash password
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
-        const newUser = new this.userModel({
+        const user = await this.userModel.create({
             email,
             password: hashedPassword,
+            firstName,
+            lastName,
         });
 
-        const savedUser = await newUser.save();
+        const payload = { sub: user._id, email: user.email };
+        const access_token = this.jwtService.sign(payload);
 
-        const payload = { sub: savedUser._id, email: savedUser.email };
-
-        return {
-            access_token: this.jwtService.sign(payload),
+        return ResponseUtil.success('User registered successfully', {
+            access_token,
             user: {
-                id: savedUser._id,
-                email: savedUser.email,
+                id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
             },
-        };
+        });
     }
 
     async forgotPassword(email: string) {
@@ -75,12 +79,10 @@ export class AuthService {
             throw new NotFoundException('User not found');
         }
 
-        // Generate reset token
         const token = crypto.randomBytes(32).toString('hex');
         const tokenExpires = new Date();
         tokenExpires.setHours(tokenExpires.getHours() + 1); // Token expires in 1 hour
 
-        // Save token to user
         await this.userModel.updateOne(
             { _id: user._id },
             {
@@ -89,19 +91,15 @@ export class AuthService {
             },
         );
 
-        // In a real application, send an email with the reset link
-        return {
-            message: 'Password reset email sent',
-            // For development purposes only
+        return ResponseUtil.success('Password reset email sent', {
             debug: {
                 token,
                 expires: tokenExpires,
-            },
-        };
+            }
+        });
     }
 
     async resetPassword(token: string, newPassword: string) {
-        // Find user with this token and token not expired
         const user = await this.userModel.findOne({
             resetPasswordToken: token,
             resetPasswordTokenExpires: { $gt: new Date() },
@@ -111,11 +109,9 @@ export class AuthService {
             throw new UnauthorizedException('Invalid or expired token');
         }
 
-        // Hash new password
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-        // Update user password and remove token fields
         await this.userModel.updateOne(
             { _id: user._id },
             {
@@ -125,8 +121,6 @@ export class AuthService {
             },
         );
 
-        return {
-            message: 'Password reset successful',
-        };
+        return ResponseUtil.success('Password reset successful');
     }
 }

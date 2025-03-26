@@ -17,7 +17,7 @@ import { QueryExpenseDto } from './dto/query-expense.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { ExpensesService } from './expenses.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
+
 
 @Controller('expenses')
 @UseGuards(JwtAuthGuard)
@@ -76,30 +76,6 @@ export class ExpensesController {
             throw new UnauthorizedException('User not authenticated');
         }
         return this.expensesService.removeExpense(id, req.user['userId']);
-    }
-
-    @Post('categories')
-    createCategory(@Body() createCategoryDto: CreateCategoryDto, @Req() req: Request) {
-        if (!req.user) {
-            throw new UnauthorizedException('User not authenticated');
-        }
-        return this.expensesService.createCategory(createCategoryDto, req.user['userId']);
-    }
-
-    @Get('categories')
-    findAllCategories(@Req() req: Request) {
-        if (!req.user) {
-            throw new UnauthorizedException('User not authenticated');
-        }
-        return this.expensesService.findAllCategories(req.user['userId']);
-    }
-
-    @Delete('categories/:id')
-    removeCategory(@Param('id') id: string, @Req() req: Request) {
-        if (!req.user) {
-            throw new UnauthorizedException('User not authenticated');
-        }
-        return this.expensesService.removeCategory(id, req.user['userId']);
     }
 
     @Post('generate-monthly-report')

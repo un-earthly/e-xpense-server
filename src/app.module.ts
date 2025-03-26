@@ -7,6 +7,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { mongooseConfig } from './config/database.config';
+import { CategoryModule } from './category/category.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -18,6 +19,7 @@ import { mongooseConfig } from './config/database.config';
     UsersModule,
     RabbitMQModule,
     ScheduleModule.forRoot(),
+    CategoryModule,
   ],
 })
 export class AppModule { }

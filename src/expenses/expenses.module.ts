@@ -3,9 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ExpensesController } from './expenses.controller';
 import { ExpensesService } from './expenses.service';
 import { Expense, ExpenseSchema } from './schemas/expense.schema';
-import { Category, CategorySchema } from './schemas/category.schema';
+
 import { ScheduleModule } from '@nestjs/schedule';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { Category, CategorySchema } from 'src/category/schema/category.schema';
 
 @Module({
     imports: [

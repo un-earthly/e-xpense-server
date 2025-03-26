@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
-import { Category } from './category.schema';
+import { Category } from 'src/category/schema/category.schema';
+
 
 export enum RecurrenceInterval {
     NONE = 'none',

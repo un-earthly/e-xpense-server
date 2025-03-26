@@ -2,21 +2,22 @@ import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Expense, ExpenseDocument, RecurrenceInterval } from './schemas/expense.schema';
-import { Category, CategoryDocument } from './schemas/category.schema';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpenseDto } from './dto/query-expense.dto';
 import { Cron } from '@nestjs/schedule';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateCategoryDto } from './dto/create-category.dto';
+
 import {
     ExpenseQuery,
     ExpensePaginationResult,
     DailySummary,
     MonthlyReportData,
-    ReportQueuePayload
+    ReportQueuePayload,
 } from './interfaces/expense.interface';
 import { User } from 'src/users/interfaces/user.interface';
+import { Category, CategoryDocument } from 'src/category/schema/category.schema';
+import { CreateCategoryDto } from 'src/category/dto/category.dto';
 
 @Injectable()
 export class ExpensesService {
