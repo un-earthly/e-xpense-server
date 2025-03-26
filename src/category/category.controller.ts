@@ -40,6 +40,7 @@ export class CategoryController {
         @GetUser() user: User,
         @Query() filterDto: CategoryFilterDto
     ): Promise<ApiResponse<any>> {
+        console.log("hitt")
         const categories = await this.categoryService.findAll(user, filterDto);
         return ResponseUtil.success('Categories retrieved successfully', categories);
     }

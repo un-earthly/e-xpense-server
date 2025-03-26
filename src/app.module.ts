@@ -8,6 +8,11 @@ import { ConfigModule } from '@nestjs/config';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { mongooseConfig } from './config/database.config';
 import { CategoryModule } from './category/category.module';
+import { TerminusModule } from '@nestjs/terminus';
+import { HttpModule } from '@nestjs/axios';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -20,6 +25,10 @@ import { CategoryModule } from './category/category.module';
     RabbitMQModule,
     ScheduleModule.forRoot(),
     CategoryModule,
+    TerminusModule,
+    HttpModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule { }
